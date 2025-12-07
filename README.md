@@ -159,7 +159,9 @@ The **MCP Server** is the service provider that exposes tools, resources, or dat
 ---
 
 <details>
-<summary><strong>MCP Communication Flow</strong></summary>
+<summary><strong>MCP Architecture & Sequence Flow</strong></summary>
+
+#### MCP Core structure 
 
 ```
 ┌─────────────┐
@@ -178,15 +180,358 @@ The **MCP Server** is the service provider that exposes tools, resources, or dat
        │   Message Exchange    │
        └───────────────────────┘
 ```
+#### AI Application with MCP
 
-### Step-by-Step Flow:
+```
+┌─────────────────────────────────────────┐
+│           AI Application                │
+│  ┌────────────┐        ┌─────────────┐ │
+│  │ MCP Client │◄──────►│     LLM     │ │
+│  └────────────┘        └─────────────┘ │
+└─────────┬───────────────────────────────┘
+          │
+          │ MCP Protocol
+          │
+┌─────────▼───────────────────────────────┐
+│          MCP Server                     │
+│  (Database, Files, APIs, etc.)          │
+└─────────────────────────────────────────┘
+```
+### Detailed Sequence Flow
 
-1. **Initialization:** Client establishes connection to Server
-2. **Discovery:** Client requests available tools/resources from Server
-3. **Request:** Client sends a JSON-RPC request to Server
-4. **Processing:** Server processes the request
-5. **Response:** Server sends back result or error
-6. **Completion:** Client processes the response and acts accordingly
+#### Phase 1: Startup and Discovery
+
+```mermaid
+sequenceDiagram
+    participant App as AI Application
+    participant Client as MCP Client
+    participant Server as MCP Server
+    participant LLM as Language Model
+
+    App->>Client: Initialize MCP Client
+    Client->>Server: Connect (establish connection)
+    Server-->>Client: Connection established
+    
+    Client->>Server: tools/list (request available tools)
+    Server-->>Client: Tool definitions (JSON)
+    
+    Client->>App: Register tools
+    App->>LLM: Update system prompt with tool descriptions
+    
+    Note over App,LLM: Application is now ready for user queries
+```
+
+#### Phase 2: Query Time Execution
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant App as AI Application
+    participant LLM as Language Model
+    participant Client as MCP Client
+    participant Server as MCP Server
+
+    User->>App: Send query
+    App->>LLM: Query + System prompt (with tools)
+    
+    Note over LLM: LLM decides which tool(s) to use
+    
+    LLM-->>App: Tool call request
+    App->>Client: Execute tool
+    Client->>Server: tools/call (with parameters)
+    Server-->>Client: Tool result
+    Client-->>App: Result
+    App->>LLM: Tool result
+    LLM-->>App: Final response
+    App-->>User: Answer
+```
+
+### Raw MCP Server Response for MCP Tool Definition Format
+
+When the MCP client requests `tools/list`, the server responds with JSON in this format:
+
+```json
+{
+  "tools": [
+    {
+      "name": "read_file",
+      "description": "Read the complete contents of a file from the file system. Handles various text encodings and provides detailed error messages if the file cannot be read.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "The absolute or relative path to the file to read"
+          }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "search_database",
+      "description": "Search the customer database using natural language queries. Returns matching records with relevance scores.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "The search query in natural language"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum number of results to return",
+            "default": 10,
+            "minimum": 1,
+            "maximum": 100
+          },
+          "filters": {
+            "type": "object",
+            "description": "Optional filters to narrow results",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": ["active", "inactive", "pending"]
+              },
+              "created_after": {
+                "type": "string",
+                "format": "date"
+              }
+            }
+          }
+        },
+        "required": ["query"]
+      }
+    },
+    {
+      "name": "execute_sql",
+      "description": "Execute a SQL query against the connected database. Supports SELECT, INSERT, UPDATE, and DELETE operations with transaction support.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "The SQL query to execute"
+          },
+          "params": {
+            "type": "array",
+            "description": "Query parameters for prepared statements",
+            "items": {
+              "type": ["string", "number", "boolean", "null"]
+            }
+          },
+          "timeout": {
+            "type": "integer",
+            "description": "Query timeout in seconds",
+            "default": 30
+          }
+        },
+        "required": ["query"]
+      }
+    }
+  ]
+}
+```
+
+### How Tools Are Presented to the LLM
+
+The MCP client transforms the tool definitions into a format suitable for the LLM's system prompt. The exact format depends on the LLM provider being used.
+
+### Example 1: Anthropic Claude Format
+
+```xml
+You are an AI assistant with access to tools via the Model Context Protocol.
+
+You can invoke tools by writing a function_calls block like this:
+<function_calls>
+<invoke>
+<tool_name>tool_name_here</tool_name>
+<parameters>
+<param_name>value</param_name>
+</parameters>
+</invoke>
+</function_calls>
+
+Available tools:
+
+<tools>
+<tool>
+<name>read_file</name>
+<description>
+Read the complete contents of a file from the file system. Handles various text 
+encodings and provides detailed error messages if the file cannot be read.
+</description>
+<parameters>
+  <parameter>
+    <name>path</name>
+    <type>string</type>
+    <required>true</required>
+    <description>The absolute or relative path to the file to read</description>
+  </parameter>
+</parameters>
+</tool>
+
+<tool>
+<name>search_database</name>
+<description>
+Search the customer database using natural language queries. Returns matching 
+records with relevance scores.
+</description>
+<parameters>
+  <parameter>
+    <name>query</name>
+    <type>string</type>
+    <required>true</required>
+    <description>The search query in natural language</description>
+  </parameter>
+  <parameter>
+    <name>limit</name>
+    <type>integer</type>
+    <required>false</required>
+    <description>Maximum number of results to return (default: 10, min: 1, max: 100)</description>
+  </parameter>
+  <parameter>
+    <name>filters</name>
+    <type>object</type>
+    <required>false</required>
+    <description>Optional filters: status (active|inactive|pending), created_after (date)</description>
+  </parameter>
+</parameters>
+</tool>
+
+<tool>
+<name>execute_sql</name>
+<description>
+Execute a SQL query against the connected database. Supports SELECT, INSERT, 
+UPDATE, and DELETE operations with transaction support.
+</description>
+<parameters>
+  <parameter>
+    <name>query</name>
+    <type>string</type>
+    <required>true</required>
+    <description>The SQL query to execute</description>
+  </parameter>
+  <parameter>
+    <name>params</name>
+    <type>array</type>
+    <required>false</required>
+    <description>Query parameters for prepared statements</description>
+  </parameter>
+  <parameter>
+    <name>timeout</name>
+    <type>integer</type>
+    <required>false</required>
+    <description>Query timeout in seconds (default: 30)</description>
+  </parameter>
+</parameters>
+</tool>
+</tools>
+```
+
+### Example 2: OpenAI Function Calling Format
+
+```json
+{
+  "model": "gpt-4",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are an AI assistant with access to tools via MCP."
+    }
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "read_file",
+        "description": "Read the complete contents of a file from the file system. Handles various text encodings and provides detailed error messages if the file cannot be read.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "The absolute or relative path to the file to read"
+            }
+          },
+          "required": ["path"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "search_database",
+        "description": "Search the customer database using natural language queries. Returns matching records with relevance scores.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "The search query in natural language"
+            },
+            "limit": {
+              "type": "integer",
+              "description": "Maximum number of results to return",
+              "default": 10,
+              "minimum": 1,
+              "maximum": 100
+            },
+            "filters": {
+              "type": "object",
+              "description": "Optional filters to narrow results",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "enum": ["active", "inactive", "pending"]
+                },
+                "created_after": {
+                  "type": "string",
+                  "format": "date"
+                }
+              }
+            }
+          },
+          "required": ["query"]
+        }
+      }
+    }
+  ]
+}
+```
+
+### Example 3: Simplified Natural Language Format
+
+Some implementations use a more human-readable format:
+
+```
+SYSTEM PROMPT:
+
+You are an AI assistant with access to the following MCP tools:
+
+1. **read_file**
+   Purpose: Read the complete contents of a file from the file system
+   Parameters:
+   - path (required): The absolute or relative path to the file to read
+   Example: read_file("/home/user/document.txt")
+
+2. **search_database**
+   Purpose: Search the customer database using natural language queries
+   Parameters:
+   - query (required): The search query in natural language
+   - limit (optional): Maximum results to return (1-100, default: 10)
+   - filters (optional): Object with status and/or created_after filters
+   Example: search_database("customers in California", limit=20)
+
+3. **execute_sql**
+   Purpose: Execute SQL queries with transaction support
+   Parameters:
+   - query (required): The SQL query to execute
+   - params (optional): Array of parameters for prepared statements
+   - timeout (optional): Query timeout in seconds (default: 30)
+   Example: execute_sql("SELECT * FROM users WHERE id = ?", params=[123])
+
+When you need to use a tool, clearly indicate which tool and what parameters.
+```
 
 </details>
 
