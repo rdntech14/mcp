@@ -260,7 +260,6 @@ sequenceDiagram
 ```
 
 
-#### Phase 2: Query Time Execution
 
 ```mermaid
 sequenceDiagram
