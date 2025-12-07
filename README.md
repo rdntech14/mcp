@@ -236,6 +236,30 @@ The **MCP Server** is the service provider that exposes tools, resources, or dat
 <details>
 <summary><strong>📊 MCP Sequence Flow</strong></summary>
 
+
+#### Phase 1: Startup and Discovery
+
+```mermaid
+sequenceDiagram
+    participant App as AI Application
+    participant Client as MCP Client
+    participant Server as MCP Server
+    participant LLM as Language Model
+
+    App->>Client: Initialize MCP Client
+    Client->>Server: Connect (establish connection)
+    Server-->>Client: Connection established
+    
+    Client->>Server: tools/list (request available tools)
+    Server-->>Client: Tool definitions (JSON)
+    
+    Client->>App: Register tools
+    App->>LLM: Update system prompt with tool descriptions
+    
+    Note over App,LLM: Application is now ready for user queries
+```
+
+
 #### Phase 2: Query Time Execution
 
 ```mermaid
@@ -347,28 +371,6 @@ When the MCP client requests `tools/list`, the server responds with JSON in this
 }
 ```
 
-
-#### Phase 1: Startup and Discovery
-
-```mermaid
-sequenceDiagram
-    participant App as AI Application
-    participant Client as MCP Client
-    participant Server as MCP Server
-    participant LLM as Language Model
-
-    App->>Client: Initialize MCP Client
-    Client->>Server: Connect (establish connection)
-    Server-->>Client: Connection established
-    
-    Client->>Server: tools/list (request available tools)
-    Server-->>Client: Tool definitions (JSON)
-    
-    Client->>App: Register tools
-    App->>LLM: Update system prompt with tool descriptions
-    
-    Note over App,LLM: Application is now ready for user queries
-```
 
 
 ### How Tools Are Presented to the LLM
