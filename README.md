@@ -239,6 +239,8 @@ The **MCP Server** is the service provider that exposes tools, resources, or dat
 
 #### Phase 1: Startup and Discovery
 
+![Diagram](./images/phase1.png)
+
 ```mermaid
 sequenceDiagram
     participant App as AI Application
@@ -260,7 +262,8 @@ sequenceDiagram
 ```
 
 
-
+#### Phase 2: Query Time Execution
+![Diagram](./images/phase2.png)
 ```mermaid
 sequenceDiagram
     participant User
