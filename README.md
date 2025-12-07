@@ -236,8 +236,6 @@ The **MCP Server** is the service provider that exposes tools, resources, or dat
 <details>
 <summary><strong>📊 MCP Sequence Flow</strong></summary>
 
-### Detailed Sequence Flow
-
 #### Phase 1: Startup and Discovery
 
 ```mermaid
