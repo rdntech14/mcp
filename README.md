@@ -241,51 +241,9 @@ The **MCP Server** is the service provider that exposes tools, resources, or dat
 
 ![Diagram](./images/phase1.png)
 
-```mermaid
-sequenceDiagram
-    participant App as AI Application
-    participant Client as MCP Client
-    participant Server as MCP Server
-    participant LLM as Language Model
-
-    App->>Client: Initialize MCP Client
-    Client->>Server: Connect (establish connection)
-    Server-->>Client: Connection established
-    
-    Client->>Server: tools/list (request available tools)
-    Server-->>Client: Tool definitions (JSON)
-    
-    Client->>App: Register tools
-    App->>LLM: Update system prompt with tool descriptions
-    
-    Note over App,LLM: Application is now ready for user queries
-```
-
-
 #### Phase 2: Query Time Execution
 ![Diagram](./images/phase2.png)
-```mermaid
-sequenceDiagram
-    participant User
-    participant App as AI Application
-    participant LLM as Language Model
-    participant Client as MCP Client
-    participant Server as MCP Server
 
-    User->>App: Send query
-    App->>LLM: Query + System prompt (with tools)
-    
-    Note over LLM: LLM decides which tool(s) to use
-    
-    LLM-->>App: Tool call request
-    App->>Client: Execute tool
-    Client->>Server: tools/call (with parameters)
-    Server-->>Client: Tool result
-    Client-->>App: Result
-    App->>LLM: Tool result
-    LLM-->>App: Final response
-    App-->>User: Answer
-```
 
 #### Raw MCP Server Response for MCP Tool Definition - Format
 
