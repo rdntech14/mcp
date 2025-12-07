@@ -283,7 +283,7 @@ sequenceDiagram
     App-->>User: Answer
 ```
 
-### Raw MCP Server Response for MCP Tool Definition - Format
+#### Raw MCP Server Response for MCP Tool Definition - Format
 
 When the MCP client requests `tools/list`, the server responds with JSON in this format:
 
@@ -373,7 +373,7 @@ When the MCP client requests `tools/list`, the server responds with JSON in this
 
 The MCP client transforms the tool definitions into a format suitable for the LLM's system prompt. The exact format depends on the LLM provider being used.
 
-### Example 1: Anthropic Claude Format
+#### Example 1: Anthropic Claude Format
 
 ```xml
 You are an AI assistant with access to tools via the Model Context Protocol.
@@ -465,7 +465,7 @@ UPDATE, and DELETE operations with transaction support.
 </tools>
 ```
 
-### Example 2: OpenAI Function Calling Format
+#### Example 2: OpenAI Function Calling Format
 
 ```json
 {
@@ -536,7 +536,7 @@ UPDATE, and DELETE operations with transaction support.
 }
 ```
 
-### Example 3: Simplified Natural Language Format
+#### Example 3: Simplified Natural Language Format
 
 Some implementations use a more human-readable format:
 
